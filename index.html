@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Vaqt Auditi — Taymer & Hisobot</title>
+
+  <!-- 1. Telegram Mini App SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- 2. Supabase JS kutubxonasi -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- 3. Chart.js kutubxonasi -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-2: #273449;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --border: rgba(148, 163, 184, 0.16);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); min-height: 100vh; padding: 14px 14px 86px; }
+    .container { max-width: 560px; margin: 0 auto; }
+    .hidden { display: none !important; }
+
+    /* Sarlavha */
+    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .topbar h1 { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .icon-btn {
+      background: var(--card); color: var(--muted); border: 1px solid var(--border);
+      padding: 6px 10px; border-radius: 10px; font-size: 12px; cursor: pointer;
+    }
+    .icon-btn:active { opacity: 0.7; }
+
+    /* Kartalar */
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px; margin-bottom: 14px;
+    }
+    .card-title { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+
+    /* Kunlik xulosa banneri */
+    .day-banner { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+    .stat-box { background: var(--card-2); border-radius: 12px; padding: 10px 6px; }
+    .stat-val { font-size: 17px; font-weight: 700; }
+    .stat-lbl { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .c-green { color: var(--green); }
+    .c-amber { color: var(--amber); }
+    .c-red { color: var(--red); }
+    .c-accent { color: var(--accent); }
+
+    /* Kirish oynasi */
+    .auth-box { max-width: 380px; margin: 40px auto; }
+    .auth-box h2 { font-size: 20px; margin-bottom: 6px; }
+    .auth-box p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+
+    /* Formalar */
+    label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 5px; }
+    input[type="text"], input[type="email"], input[type="password"], input[type="number"] {
+      width: 100%; background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 11px 12px; font-size: 15px; outline: none;
+    }
+    input:focus { border-color: var(--accent); }
+
+    /* Tugmalar */
+    .btn {
+      width: 100%; border: none; border-radius: 12px; padding: 13px;
+      font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.15s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--accent); color: #082f49; }
+    .btn-green { background: var(--green); color: #052e16; }
+    .btn-red { background: var(--red); color: #fff; }
+    .btn-ghost { background: var(--card-2); color: var(--text); }
+
+    /* Tezkor chiplar */
+    .chip-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 6px; }
+    .chip {
+      background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+      padding: 7px 11px; border-radius: 20px; font-size: 12px; cursor: pointer; user-select: none;
+    }
+    .chip.active { background: rgba(56, 189, 248, 0.18); border-color: var(--accent); color: var(--text); font-weight: 600; }
+    .chip.cat-roi.active { background: rgba(34, 197, 94, 0.2); border-color: var(--green); color: var(--green); }
+    .chip.cat-fake.active { background: rgba(245, 158, 11, 0.2); border-color: var(--amber); color: var(--amber); }
+    .chip.cat-waste.active { background: rgba(239, 68, 68, 0.2); border-color: var(--red); color: var(--red); }
+
+    /* Taymer raqami */
+    .timer-display {
+      text-align: center; font-size: 46px; font-weight: 800;
+      font-variant-numeric: tabular-nums; letter-spacing: 1px;
+      padding: 14px 0 8px;
+    }
+    .timer-sub { text-align: center; font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+
+    /* Audit natija oynasi */
+    .audit-summary {
+      background: var(--bg); border-radius: 12px; padding: 12px;
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 12px;
+    }
+
+    /* Bugungi yozuvlar ro'yxati */
+    .log-item {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+    }
+    .log-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .log-name { font-size: 14px; font-weight: 600; }
+    .log-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .badge {
+      display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; margin-right: 4px;
+    }
+    .b-roi { background: rgba(34,197,94,0.18); color: var(--green); }
+    .b-fake { background: rgba(245,158,11,0.18); color: var(--amber); }
+    .b-waste { background: rgba(239,68,68,0.18); color: var(--red); }
+    .del-btn {
+      background: transparent; border: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 2px 6px;
+    }
+    .del-btn:hover { color: var(--red); }
+
+    /* Hisobotlar */
+    .seg-control {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+      background: var(--card); padding: 4px; border-radius: 12px; margin-bottom: 14px; border: 1px solid var(--border);
+    }
+    .seg-btn {
+      background: transparent; color: var(--muted); border: none; padding: 9px;
+      border-radius: 9px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .seg-btn.active { background: var(--accent); color: #082f49; }
+    .chart-wrap { position: relative; width: 100%; height: 230px; }
+    .chart-wrap-sm { position: relative; width: 100%; height: 210px; }
+
+    /* Pastki navigatsiya */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border); display: flex; justify-content: center; gap: 12px; padding: 10px 14px;
+    }
+    .nav-btn {
+      flex: 1; max-width: 260px; background: var(--card); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 12px; padding: 10px;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .nav-btn.active { background: var(--accent); color: #082f49; border-color: var(--accent); }
+
+    .msg { font-size: 13px; margin-top: 10px; text-align: center; min-height: 18px; }
+    .msg.err { color: var(--red); }
+    .msg.ok { color: var(--green); }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <!-- 1. KIRISH OYNASI (LOGIN) -->
+    <div id="authSection" class="card auth-box hidden">
+      <h2>🔐 Vaqt Auditi</h2>
+      <p>Supabase'da yaratgan shaxsiy email va parolingiz bilan kiring. Telefon va noutbuk avtomatik sinxronlashadi.</p>
+      <label for="loginEmail">Email</label>
+      <input type="email" id="loginEmail" placeholder="email@example.com" autocomplete="email" />
+      <label for="loginPass">Parol</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" />
+      <button class="btn btn-primary" id="loginBtn" style="margin-top:16px;">Kirish</button>
+      <div id="authMsg" class="msg err"></div>
+    </div>
+
+    <!-- 2. ASOSIY ILOVA -->
+    <div id="appSection" class="hidden">
+      <div class="topbar">
+        <h1>⏱ Vaqt Auditi</h1>
+        <div style="display:flex; gap:6px;">
+          <button class="icon-btn" id="syncBtn">🔄 Yangilash</button>
+          <button class="icon-btn" id="logoutBtn">Chiqish</button>
+        </div>
+      </div>
+
+      <!-- TAB 1: TAYMER -->
+      <div id="tabTimer">
+        <!-- Bugungi kunlik kapital -->
+        <div class="card">
+          <div class="card-title" id="todayTitle">Bugungi kapital</div>
+          <div class="day-banner">
+            <div class="stat-box">
+              <div class="stat-val c-accent" id="todayBudget">0s 0d</div>
+              <div class="stat-lbl">Ixtiyoriy vaqt</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val c-green" id="todayRoi">0 daq</div>
+              <div class="stat-lbl">Haqiqiy ROI</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" id="todayEff">0%</div>
+              <div class="stat-lbl">Samaradorlik</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Taymer boshqaruvi -->
+        <div class="card" id="timerSetupCard">
+          <div class="timer-display" id="timerClock">00:00:00</div>
+          <div class="timer-sub" id="timerStatus">Boshlashga tayyor</div>
+
+          <div id="setupFields">
+            <label for="taskName">Vazifa nomi</label>
+            <input type="text" id="taskName" placeholder="Masalan: Farmakologiya 15 bet" />
+
+            <label>Toifa</label>
+            <div class="chip-row" id="catChips">
+              <div class="chip cat-roi active" data-cat="Haqiqiy ROI">Haqiqiy ROI</div>
+              <div class="chip cat-fake" data-cat="Soxta bandlik">Soxta bandlik</div>
+              <div class="chip cat-waste" data-cat="Behuda vaqt">Behuda vaqt</div>
+            </div>
+
+            <label for="minMinutes">Minimal vaqt — reja (daqiqa)</label>
+            <div class="chip-row" id="minPresets">
+              <div class="chip" data-min="15">15 daq</div>
+              <div class="chip active" data-min="30">30 daq</div>
+              <div class="chip" data-min="45">45 daq</div>
+              <div class="chip" data-min="60">60 daq</div>
+            </div>
+            <input type="number" id="minMinutes" value="30" min="1" max="600" style="margin-top:8px;" />
+          </div>
+
+          <button class="btn btn-green" id="startBtn" style="margin-top:14px;">▶ Boshlash</button>
+          <button class="btn btn-red hidden" id="stopBtn" style="margin-top:14px;">⏹ Tugatish</button>
+        </div>
+
+        <!-- Tugatgandan keyingi audit anketasi -->
+        <div class="card hidden" id="auditCard">
+          <div class="card-title">📋 Ish yakuni — Qisqa audit</div>
+          <div class="audit-summary">
+            <div>
+              <div class="stat-val c-accent" id="audMin">30d</div>
+              <div class="stat-lbl">Minimal</div>
+            </div>
+            <div>
+              <div class="stat-val" id="audReal">30d</div>
+              <div class="stat-lbl">Real vaqt</div>
+            </div>
+            <div>
+              <div class="stat-val" id="audKp">1.0x</div>
+              <div class="stat-lbl">Parkinson (Kp)</div>
+            </div>
+          </div>
+
+          <label for="auditRealInput">Real ketgan vaqt (daqiqa — kerak bo'lsa tahrirlang)</label>
+          <input type="number" id="auditRealInput" min="1" max="1440" />
+
+          <label for="auditOutput">Moddiy natija (o'lchanadigan birlik)</label>
+          <input type="text" id="auditOutput" placeholder="Masalan: 15 bet, 30 ta so'z, 8 km" />
+
+          <label>Kechikish / chalg'ish sababi (bir nechtasini tanlash mumkin)</label>
+          <div class="chip-row" id="reasonChips">
+            <div class="chip" data-reason="#kechikmadim">#kechikmadim</div>
+            <div class="chip" data-reason="#telefon">#telefon</div>
+            <div class="chip" data-reason="#perfektsionizm">#perfektsionizm</div>
+            <div class="chip" data-reason="#rejasi_yoq">#rejasi_yoq</div>
+            <div class="chip" data-reason="#charchoq">#charchoq</div>
+            <div class="chip" data-reason="#chalg'ish">#chalg'ish</div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: 1fr 2fr; gap:8px; margin-top:16px;">
+            <button class="btn btn-ghost" id="cancelAuditBtn">Bekor</button>
+            <button class="btn btn-primary" id="saveAuditBtn">💾 Saqlash</button>
+          </div>
+          <div id="saveMsg" class="msg"></div>
+        </div>
+
+        <!-- Bugungi yozuvlar -->
+        <div class="card">
+          <div class="card-title">Bugungi yozuvlar</div>
+          <div id="todayLogs" style="font-size:13px; color:var(--muted);">Yuklanmoqda...</div>
+        </div>
+      </div>
+
+      <!-- TAB 2: HISOBOTLAR (CHART.JS) -->
+      <div id="tabReports" class="hidden">
+        <div class="seg-control">
+          <button class="seg-btn active" data-range="week">Haftalik (7 kun)</button>
+          <button class="seg-btn" data-range="month">Oylik (30 kun)</button>
+        </div>
+
+        <div class="card">
+          <div class="day-banner">
+            <div class="stat-box">
+              <div class="stat-val c-accent" id="repBudget">54s</div>
+              <div class="stat-lbl">Ixtiyoriy kapital</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val c-green" id="repRoi">0s</div>
+              <div class="stat-lbl">Haqiqiy ROI</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val c-amber" id="repEff">0%</div>
+              <div class="stat-lbl">O'rtacha ROI %</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" id="barTitle">Haftalik taqsimot (soatlar)</div>
+          <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" id="lineTitle">Kunlik samaradorlik dinamikasi (%)</div>
+          <div class="chart-wrap"><canvas id="lineChart"></canvas></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Vaqt o'g'rilari (kechikish sabablari)</div>
+          <div class="chart-wrap-sm"><canvas id="doughnutChart"></canvas></div>
+          <div id="doughnutEmpty" class="hidden" style="text-align:center; color:var(--muted); font-size:13px; padding:20px 0;">
+            Hozircha kechikish sabablari kiritilmagan.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASTKI NAVIGATSIYA -->
+  <div class="bottom-nav hidden" id="bottomNav">
+    <button class="nav-btn active" data-tab="timer">⏱ Taymer</button>
+    <button class="nav-btn" data-tab="reports">📊 Hisobotlar</button>
+  </div>
+
+  <!-- =====================================================
+       JAVASCRIPT MANTIQI (Supabase + Taymer + Chart.js)
+       ===================================================== -->
+  <script>
+    // 1. SUPABASE SOZLAMALARI (Faqat 2-qatorga kalitingizni qo'ying!)
+    const SUPABASE_URL = "https://whmmrnfmeomilqmxwuyz.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_yPN1rx4xBYdIDY-gKBM_JA_z5Y60Jo7";
+
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Telegram Mini App integratsiyasi
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+    }
+
+    // Sizning 7 kunlik shaxsiy ixtiyoriy vaqt jadvalingiz (daqiqalarda; 0=Yakshanba ... 6=Shanba)
+    const DAY_BUDGET_MIN = {
+      1: 560, // Dushanba: 9s 20d
+      2: 200, // Seshanba: 3s 20d
+      3: 340, // Chorshanba: 5s 40d
+      4: 350, // Payshanba: 5s 50d
+      5: 350, // Juma: 5s 50d
+      6: 720, // Shanba: 12s 00d
+      0: 720  // Yakshanba: 12s 00d
+    };
+    const DAY_NAMES = ["Yakshanba", "Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba"];
+    const DAY_SHORT = ["Yak", "Dush", "Sesh", "Chor", "Pay", "Jum", "Shan"];
+    const TIMER_STORAGE_KEY = "vaqt_auditi_running_v1";
+
+    // Ilova holati (State)
+    let allRows = [];
+    let selectedCategory = "Haqiqiy ROI";
+    let timerInterval = null;
+    let activeTimer = null;
+    let pendingAudit = null;
+    let reportRange = "week";
+    let charts = { bar: null, line: null, doughnut: null };
+
+    // Yordamchi funksiyalar
+    const $ = (id) => document.getElementById(id);
+    function fmtMinToHM(min) {
+      const h = Math.floor(min / 60);
+      const m = Math.round(min % 60);
+      return h > 0 ? `${h}s ${m}d` : `${m} daq`;
+    }
+    function localDateKey(dateObj) {
+      const d = new Date(dateObj);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+    function escapeHtml(str) {
+      return String(str || "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
+    }
+
+    // ==================== AUTH (KIRISH) ====================
+    async function initAuth() {
+      const { data: { session } } = await sb.auth.getSession();
+      handleSession(session);
+      sb.auth.onAuthStateChange((_event, newSession) => handleSession(newSession));
+    }
+
+    function handleSession(session) {
+      if (session) {
+        $("authSection").classList.add("hidden");
+        $("appSection").classList.remove("hidden");
+        $("bottomNav").classList.remove("hidden");
+        restoreTimerFromStorage();
+        loadData();
+      } else {
+        $("authSection").classList.remove("hidden");
+        $("appSection").classList.add("hidden");
+        $("bottomNav").classList.add("hidden");
+      }
+    }
+
+    $("loginBtn").addEventListener("click", async () => {
+      const email = $("loginEmail").value.trim();
+      const password = $("loginPass").value;
+      $("authMsg").textContent = "Kirilmoqda...";
+      $("authMsg").className = "msg";
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) {
+        $("authMsg").textContent = "Xato: " + error.message;
+        $("authMsg").className = "msg err";
+      } else {
+        $("authMsg").textContent = "";
+      }
+    });
+
+    $("logoutBtn").addEventListener("click", async () => {
+      await sb.auth.signOut();
+    });
+
+    // ==================== MA'LUMOTLARNI YUKLASH ====================
+    async function loadData() {
+      $("syncBtn").textContent = "⏳...";
+      const since = new Date();
+      since.setDate(since.getDate() - 35);
+
+      const { data, error } = await sb
+        .from("vaqt_auditi")
+        .select("*")
+        .gte("created_at", since.toISOString())
+        .order("created_at", { ascending: false });
+
+      $("syncBtn").textContent = "🔄 Yangilash";
+      if (error) {
+        $("todayLogs").innerHTML = `<span style="color:var(--red)">Yuklashda xato: ${escapeHtml(error.message)}</span>`;
+        return;
+      }
+      allRows = data || [];
+      renderTodaySummary();
+      renderTodayLogs();
+      if (!$("tabReports").classList.contains("hidden")) {
+        renderReports();
+      }
+    }
+
+    $("syncBtn").addEventListener("click", loadData);
+
+    function renderTodaySummary() {
+      const now = new Date();
+      const todayKey = localDateKey(now);
+      const budget = DAY_BUDGET_MIN[now.getDay()];
+
+      const todayRows = allRows.filter((r) => localDateKey(r.created_at) === todayKey);
+      const roiMin = todayRows
+        .filter((r) => r.toifa === "Haqiqiy ROI")
+        .reduce((sum, r) => sum + (Number(r.real_daq) || 0), 0);
+
+      const eff = budget > 0 ? Math.round((roiMin / budget) * 100) : 0;
+
+      $("todayTitle").textContent = `Bugun (${DAY_NAMES[now.getDay()]}) — Vaqt kapitali`;
+      $("todayBudget").textContent = fmtMinToHM(budget);
+      $("todayRoi").textContent = fmtMinToHM(roiMin);
+      $("todayEff").textContent = eff + "%";
+      $("todayEff").className = "stat-val " + (eff >= 60 ? "c-green" : eff >= 30 ? "c-amber" : "c-red");
+    }
+
+    function renderTodayLogs() {
+      const todayKey = localDateKey(new Date());
+      const todayRows = allRows.filter((r) => localDateKey(r.created_at) === todayKey);
+
+      if (!todayRows.length) {
+        $("todayLogs").textContent = "Bugun hali yozuv kiritilmagan. Birinchi vazifangizni boshlang!";
+        return;
+      }
+
+      $("todayLogs").innerHTML = todayRows.map((r) => {
+        const bClass = r.toifa === "Haqiqiy ROI" ? "b-roi" : r.toifa === "Soxta bandlik" ? "b-fake" : "b-waste";
+        const eff = r.real_daq > 0 ? Math.round((r.minimal_daq / r.real_daq) * 100) : 0;
+        const reasons = (r.sabablar || []).join(" ");
+        return `
+          <div class="log-item">
+            <div>
+              <div class="log-name">${escapeHtml(r.vazifa)}</div>
+              <div class="log-meta">
+                <span class="badge ${bClass}">${escapeHtml(r.toifa)}</span>
+                Reja: ${r.minimal_daq}d • Real: <b>${r.real_daq}d</b> (${eff}%)
+                ${r.natija ? `<br>Natija: ${escapeHtml(r.natija)}` : ""}
+                ${reasons ? `<br>${escapeHtml(reasons)}` : ""}
+              </div>
+            </div>
+            <button class="del-btn" title="O'chirish" onclick="deleteRow(${r.id})">✕</button>
+          </div>
+        `;
+      }).join("");
+    }
+
+    window.deleteRow = async function(id) {
+      if (!confirm("Ushbu yozuvni o'chirmoqchimisiz?")) return;
+      const { error } = await sb.from("vaqt_auditi").delete().eq("id", id);
+      if (!error) loadData();
+    };
+
+    // ==================== TAYMER MANTIQI ====================
+    $("catChips").addEventListener("click", (e) => {
+      const chip = e.target.closest(".chip");
+      if (!chip) return;
+      $("catChips").querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      selectedCategory = chip.dataset.cat;
+    });
+
+    $("minPresets").addEventListener("click", (e) => {
+      const chip = e.target.closest(".chip");
+      if (!chip) return;
+      $("minPresets").querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      $("minMinutes").value = chip.dataset.min;
+    });
+
+    $("reasonChips").addEventListener("click", (e) => {
+      const chip = e.target.closest(".chip");
+      if (!chip) return;
+      chip.classList.toggle("active");
+    });
+
+    function startTicking() {
+      if (timerInterval) clearInterval(timerInterval);
+      const tick = () => {
+        if (!activeTimer) return;
+        const diffSec = Math.max(0, Math.floor((Date.now() - activeTimer.startTime) / 1000));
+        const h = String(Math.floor(diffSec / 3600)).padStart(2, "0");
+        const m = String(Math.floor((diffSec % 3600) / 60)).padStart(2, "0");
+        const s = String(diffSec % 60).padStart(2, "0");
+        $("timerClock").textContent = `${h}:${m}:${s}`;
+      };
+      tick();
+      timerInterval = setInterval(tick, 1000);
+    }
+
+    function restoreTimerFromStorage() {
+      try {
+        const raw = localStorage.getItem(TIMER_STORAGE_KEY);
+        if (!raw) return;
+        activeTimer = JSON.parse(raw);
+        $("setupFields").classList.add("hidden");
+        $("startBtn").classList.add("hidden");
+        $("stopBtn").classList.remove("hidden");
+        $("timerStatus").textContent = `Jarayonda: ${activeTimer.vazifa} (Reja: ${activeTimer.minimal_daq} daq)`;
+        startTicking();
+      } catch (_) {}
+    }
+
+    $("startBtn").addEventListener("click", () => {
+      const vazifa = $("taskName").value.trim() || "Nomsiz vazifa";
+      const minimal_daq = Math.max(1, parseInt($("minMinutes").value, 10) || 30);
+
+      activeTimer = {
+        startTime: Date.now(),
+        vazifa,
+        toifa: selectedCategory,
+        minimal_daq
+      };
+      localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(activeTimer));
+
+      $("setupFields").classList.add("hidden");
+      $("startBtn").classList.add("hidden");
+      $("stopBtn").classList.remove("hidden");
+      $("auditCard").classList.add("hidden");
+      $("timerStatus").textContent = `Jarayonda: ${activeTimer.vazifa} (Reja: ${activeTimer.minimal_daq} daq)`;
+      startTicking();
+    });
+
+    function updateAuditPreview() {
+      if (!pendingAudit) return;
+      const real = Math.max(1, parseInt($("auditRealInput").value, 10) || 1);
+      const min = pendingAudit.minimal_daq;
+      const kp = (real / min).toFixed(2);
+      $("audMin").textContent = min + "d";
+      $("audReal").textContent = real + "d";
+      $("audKp").textContent = kp + "x";
+      $("audKp").className = "stat-val " + (kp <= 1.1 ? "c-green" : kp <= 1.5 ? "c-amber" : "c-red");
+    }
+
+    $("auditRealInput").addEventListener("input", updateAuditPreview);
+
+    $("stopBtn").addEventListener("click", () => {
+      if (!activeTimer) return;
+      clearInterval(timerInterval);
+      const elapsedMin = Math.max(1, Math.round((Date.now() - activeTimer.startTime) / 60000));
+
+      pendingAudit = { ...activeTimer };
+      activeTimer = null;
+      localStorage.removeItem(TIMER_STORAGE_KEY);
+
+      $("timerClock").textContent = "00:00:00";
+      $("timerStatus").textContent = "Auditni yakunlang va saqlang";
+      $("stopBtn").classList.add("hidden");
+      $("timerSetupCard").classList.add("hidden");
+
+      $("auditRealInput").value = elapsedMin;
+      $("auditOutput").value = "";
+      $("saveMsg").textContent = "";
+      $("reasonChips").querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+      updateAuditPreview();
+      $("auditCard").classList.remove("hidden");
+    });
+
+    function resetTimerUI() {
+      pendingAudit = null;
+      $("auditCard").classList.add("hidden");
+      $("timerSetupCard").classList.remove("hidden");
+      $("setupFields").classList.remove("hidden");
+      $("startBtn").classList.remove("hidden");
+      $("stopBtn").classList.add("hidden");
+      $("timerStatus").textContent = "Boshlashga tayyor";
+      $("taskName").value = "";
+    }
+
+    $("cancelAuditBtn").addEventListener("click", resetTimerUI);
+
+    $("saveAuditBtn").addEventListener("click", async () => {
+      if (!pendingAudit) return;
+      const real_daq = Math.max(1, parseInt($("auditRealInput").value, 10) || 1);
+      const natija = $("auditOutput").value.trim();
+      const sabablar = Array.from($("reasonChips").querySelectorAll(".chip.active")).map((c) => c.dataset.reason);
+
+      $("saveAuditBtn").disabled = true;
+      $("saveMsg").textContent = "Saqlanmoqda...";
+      $("saveMsg").className = "msg";
+
+      const { error } = await sb.from("vaqt_auditi").insert([{
+        vazifa: pendingAudit.vazifa,
+        toifa: pendingAudit.toifa,
+        minimal_daq: pendingAudit.minimal_daq,
+        real_daq,
+        natija,
+        sabablar
+      }]);
+
+      $("saveAuditBtn").disabled = false;
+      if (error) {
+        $("saveMsg").textContent = "Xato: " + error.message;
+        $("saveMsg").className = "msg err";
+      } else {
+        resetTimerUI();
+        await loadData();
+      }
+    });
+
+    // ==================== CHART.JS HISOBOTLARI ====================
+    function getDateList(daysCount) {
+      const list = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (daysCount === 7) {
+        // Joriy haftaning Dushanbasidan Yakshanbasigacha
+        const day = today.getDay();
+        const diffToMon = (day === 0 ? -6 : 1 - day);
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + diffToMon);
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(monday);
+          d.setDate(monday.getDate() + i);
+          list.push(d);
+        }
+      } else {
+        // Oxirgi 30 kun
+        for (let i = 29; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(today.getDate() - i);
+          list.push(d);
+        }
+      }
+      return list;
+    }
+
+    function renderReports() {
+      const isWeek = reportRange === "week";
+      const days = getDateList(isWeek ? 7 : 30);
+
+      const labels = [];
+      const roiHours = [], fakeHours = [], wasteHours = [], unknownHours = [];
+      const effPercents = [];
+      let totalBudgetMin = 0, totalRoiMin = 0;
+
+      // Kunlar bo'yicha guruhlash
+      const byDay = {};
+      allRows.forEach((r) => {
+        const k = localDateKey(r.created_at);
+        if (!byDay[k]) byDay[k] = [];
+        byDay[k].push(r);
+      });
+
+      const validKeys = new Set(days.map(localDateKey));
+
+      days.forEach((d) => {
+        const k = localDateKey(d);
+        const budgetMin = DAY_BUDGET_MIN[d.getDay()];
+        const rows = byDay[k] || [];
+
+        const roi = rows.filter((r) => r.toifa === "Haqiqiy ROI").reduce((s, r) => s + (r.real_daq || 0), 0);
+        const fake = rows.filter((r) => r.toifa === "Soxta bandlik").reduce((s, r) => s + (r.real_daq || 0), 0);
+        const waste = rows.filter((r) => r.toifa === "Behuda vaqt").reduce((s, r) => s + (r.real_daq || 0), 0);
+        const unknown = Math.max(0, budgetMin - (roi + fake + waste));
+
+        totalBudgetMin += budgetMin;
+        totalRoiMin += roi;
+
+        labels.push(isWeek ? DAY_SHORT[d.getDay()] : `${d.getDate()}.${String(d.getMonth()+1).padStart(2,"0")}`);
+        roiHours.push(+(roi / 60).toFixed(2));
+        fakeHours.push(+(fake / 60).toFixed(2));
+        wasteHours.push(+(waste / 60).toFixed(2));
+        unknownHours.push(+(unknown / 60).toFixed(2));
+        effPercents.push(budgetMin > 0 ? Math.round((roi / budgetMin) * 100) : 0);
+      });
+
+      // Yuqori KPI raqamlar
+      $("repBudget").textContent = Math.round(totalBudgetMin / 60) + " soat";
+      $("repRoi").textContent = (totalRoiMin / 60).toFixed(1) + " soat";
+      $("repEff").textContent = (totalBudgetMin > 0 ? Math.round((totalRoiMin / totalBudgetMin) * 100) : 0) + "%";
+      $("barTitle").textContent = isWeek ? "Haftalik taqsimot (54 soatlik kapital)" : "Oxirgi 30 kunlik vaqt taqsimoti (soat)";
+      $("lineTitle").textContent = isWeek ? "Haftalik kunlik samaradorlik (%)" : "Oylik samaradorlik dinamikasi (%)";
+
+      // 1-grafik: Stacked Bar (Vaqt taqsimoti)
+      if (charts.bar) charts.bar.destroy();
+      charts.bar = new Chart($("barChart"), {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            { label: "Haqiqiy ROI", data: roiHours, backgroundColor: "#22c55e" },
+            { label: "Soxta bandlik", data: fakeHours, backgroundColor: "#f59e0b" },
+            { label: "Behuda vaqt", data: wasteHours, backgroundColor: "#ef4444" },
+            { label: "Izsiz / bo'sh", data: unknownHours, backgroundColor: "rgba(148,163,184,0.22)" }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: {
+            x: { stacked: true, ticks: { color: "#94a3b8", maxRotation: 0 }, grid: { display: false } },
+            y: { stacked: true, ticks: { color: "#94a3b8" }, grid: { color: "rgba(148,163,184,0.1)" } }
+          },
+          plugins: { legend: { labels: { color: "#cbd5e1", boxWidth: 10, font: { size: 11 } } } }
+        }
+      });
+
+      // 2-grafik: Line (Samaradorlik %)
+      if (charts.line) charts.line.destroy();
+      charts.line = new Chart($("lineChart"), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: "Samaradorlik (%)",
+            data: effPercents,
+            borderColor: "#38bdf8",
+            backgroundColor: "rgba(56,189,248,0.18)",
+            fill: true,
+            tension: 0.35,
+            pointRadius: isWeek ? 4 : 2
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { color: "#94a3b8" }, grid: { display: false } },
+            y: { beginAtZero: true, max: 100, ticks: { color: "#94a3b8" }, grid: { color: "rgba(148,163,184,0.1)" } }
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+
+      // 3-grafik: Doughnut (Kechikish sabablari)
+      const reasonCounts = {};
+      allRows.forEach((r) => {
+        if (!validKeys.has(localDateKey(r.created_at))) return;
+        (r.sabablar || []).forEach((tag) => {
+          if (tag === "#kechikmadim") return;
+          reasonCounts[tag] = (reasonCounts[tag] || 0) + 1;
+        });
+      });
+
+      const rLabels = Object.keys(reasonCounts);
+      const rVals = Object.values(reasonCounts);
+
+      if (charts.doughnut) charts.doughnut.destroy();
+      if (!rLabels.length) {
+        $("doughnutChart").parentElement.classList.add("hidden");
+        $("doughnutEmpty").classList.remove("hidden");
+      } else {
+        $("doughnutChart").parentElement.classList.remove("hidden");
+        $("doughnutEmpty").classList.add("hidden");
+        charts.doughnut = new Chart($("doughnutChart"), {
+          type: "doughnut",
+          data: {
+            labels: rLabels,
+            datasets: [{
+              data: rVals,
+              backgroundColor: ["#ef4444", "#f59e0b", "#a855f7", "#38bdf8", "#ec4899", "#14b8a6"],
+              borderWidth: 0
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: "right", labels: { color: "#cbd5e1", font: { size: 12 } } } }
+          }
+        });
+      }
+    }
+
+    // ==================== NAVIGATSIYA ====================
+    document.querySelectorAll(".nav-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".nav-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const tab = btn.dataset.tab;
+        $("tabTimer").classList.toggle("hidden", tab !== "timer");
+        $("tabReports").classList.toggle("hidden", tab !== "reports");
+        if (tab === "reports") renderReports();
+      });
+    });
+
+    document.querySelectorAll(".seg-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".seg-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        reportRange = btn.dataset.range;
+        renderReports();
+      });
+    });
+
+    // Ilovani ishga tushirish
+    initAuth();
+  </script>
+</body>
+</html>
